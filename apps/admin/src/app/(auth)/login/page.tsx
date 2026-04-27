@@ -1,10 +1,13 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { signIn } from '@/lib/auth-client';
 import Image from 'next/image';
+
+const STOREFRONT_URL = process.env.NEXT_PUBLIC_STOREFRONT_URL || 'https://jotek.ng';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -57,6 +60,12 @@ export default function LoginPage() {
             <Image src="/jotek-logo.jpeg" alt="Jotek" width={132} height={46} priority className="h-auto w-auto" />
           </span>
           <p className="mt-1 text-sm text-gray-500">Admin Dashboard</p>
+          <Link
+            href={STOREFRONT_URL}
+            className="mt-3 inline-flex text-sm font-semibold text-brand-500 hover:underline"
+          >
+            Visit Jotek store
+          </Link>
         </div>
 
         {step === 'credentials' ? (
