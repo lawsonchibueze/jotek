@@ -12,18 +12,18 @@ import {
   MessageCircle,
   ShieldCheck,
   Smartphone,
-  Sparkles,
   Truck,
   Watch,
 } from 'lucide-react';
 import { serverFetch } from '@/lib/api';
+import { HeroCarousel } from '@/components/home/hero-carousel';
 import { ProductCard } from '@/components/shop/product-card';
 import type { ProductCard as ProductCardType, Brand, Category } from '@jotek/types';
 
 export const revalidate = 30;
 
 export const metadata: Metadata = {
-  title: 'Jotek — Premium Electronics & Gadgets in Nigeria',
+  title: 'Jotek - Premium Electronics & Gadgets in Nigeria',
   description:
     'Shop authentic phones, laptops, accessories, JBL speakers, smart watches, earpods, power banks and gaming gear at Jotek.ng.',
 };
@@ -62,7 +62,6 @@ const trustItems = [
 
 export default async function HomePage() {
   const { featuredProducts, brands, categories } = await getHomepageData();
-  const heroProducts = featuredProducts.filter((p) => p.primaryImage).slice(0, 3);
   const visibleCategories = categoryFallbacks.map((fallback) => {
     const match = categories.find((c) => c.slug === fallback.href.split('/').pop());
     return {
@@ -74,69 +73,7 @@ export default async function HomePage() {
 
   return (
     <div className="bg-white">
-      <section className="overflow-hidden bg-[radial-gradient(circle_at_top_right,#fff7ed,transparent_32%),linear-gradient(135deg,#050505_0%,#111827_54%,#0A2463_100%)] text-white">
-        <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-8 lg:py-16">
-          <div className="flex flex-col justify-center">
-            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-orange-100">
-              <Sparkles className="h-3.5 w-3.5 text-accent-400" />
-              Premium gadgets, built for Nigerian shoppers
-            </div>
-            <h1 className="mt-6 max-w-3xl text-4xl font-black leading-tight tracking-normal sm:text-5xl lg:text-6xl">
-              Authentic electronics delivered with confidence.
-            </h1>
-            <p className="mt-5 max-w-2xl text-base leading-7 text-white/75 sm:text-lg">
-              Shop mobile phones, laptops, JBL speakers, earpods, smart watches, power
-              banks, PS5 accessories and everyday tech essentials from Jotek.ng.
-            </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link href="/search" className="btn-primary bg-accent-500 px-7 hover:bg-accent-400">
-                Shop Electronics
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-              <Link href="/deals" className="btn-secondary border-white/30 bg-white/10 px-7 text-white hover:bg-white/15">
-                View Deals
-              </Link>
-            </div>
-            <div className="mt-8 grid max-w-xl grid-cols-3 gap-3 text-sm">
-              {['Warranty-backed', 'Paystack secure', 'WhatsApp support'].map((item) => (
-                <div key={item} className="rounded-lg border border-white/10 bg-white/10 px-3 py-2 text-white/80">
-                  {item}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="relative min-h-[360px] lg:min-h-[460px]">
-            <div className="absolute inset-x-8 top-10 h-64 rounded-full bg-accent-500/20 blur-3xl" />
-            <div className="relative grid h-full grid-cols-2 gap-4">
-              <div className="flex flex-col justify-end gap-4 pb-8">
-                {heroProducts[0] ? (
-                  <HeroProduct product={heroProducts[0]} large />
-                ) : (
-                  <HeroDevice label="Flagship phones" icon={Smartphone} large />
-                )}
-                {heroProducts[1] ? (
-                  <HeroProduct product={heroProducts[1]} />
-                ) : (
-                  <HeroDevice label="Power accessories" icon={BatteryCharging} />
-                )}
-              </div>
-              <div className="flex flex-col gap-4 pt-8">
-                <div className="rounded-2xl border border-white/10 bg-white p-5 text-gray-900 shadow-2xl">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-accent-500">Today at Jotek</p>
-                  <p className="mt-2 text-3xl font-black">Up to 25% off</p>
-                  <p className="mt-1 text-sm text-gray-500">Selected accessories and audio deals.</p>
-                </div>
-                {heroProducts[2] ? (
-                  <HeroProduct product={heroProducts[2]} />
-                ) : (
-                  <HeroDevice label="JBL audio zone" icon={Headphones} />
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+      <HeroCarousel />
 
       <section className="border-b border-gray-200 bg-white">
         <div className="mx-auto grid max-w-7xl gap-4 px-4 py-6 sm:grid-cols-2 sm:px-6 lg:grid-cols-4 lg:px-8">
@@ -248,43 +185,6 @@ export default async function HomePage() {
           </div>
         </section>
       )}
-    </div>
-  );
-}
-
-function HeroProduct({ product, large = false }: { product: ProductCardType; large?: boolean }) {
-  return (
-    <Link
-      href={`/products/${product.slug}`}
-      className={`group rounded-2xl border border-white/10 bg-white p-4 text-gray-900 shadow-2xl transition hover:-translate-y-1 ${
-        large ? 'min-h-[220px]' : 'min-h-[170px]'
-      }`}
-    >
-      <div className="relative mx-auto aspect-square max-h-36">
-        {product.primaryImage && (
-          <Image src={product.primaryImage} alt={product.name} fill className="object-contain" sizes="180px" />
-        )}
-      </div>
-      <p className="mt-3 line-clamp-2 text-sm font-bold group-hover:text-brand-500">{product.name}</p>
-    </Link>
-  );
-}
-
-function HeroDevice({
-  label,
-  icon: Icon,
-  large = false,
-}: {
-  label: string;
-  icon: typeof Smartphone;
-  large?: boolean;
-}) {
-  return (
-    <div className={`rounded-2xl border border-white/10 bg-white p-5 text-gray-900 shadow-2xl ${large ? 'min-h-[220px]' : 'min-h-[170px]'}`}>
-      <div className="flex aspect-square max-h-32 items-center justify-center rounded-2xl bg-gray-100 text-brand-500">
-        <Icon className="h-14 w-14" />
-      </div>
-      <p className="mt-4 text-sm font-black">{label}</p>
     </div>
   );
 }
