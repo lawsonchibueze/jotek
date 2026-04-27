@@ -24,6 +24,27 @@ export class AdminOrdersController {
   private get db() { return this.database.db; }
   private get s() { return this.database.schema; }
 
+  private mapOrder(order: any) {
+    return {
+      ...order,
+      customerName: order.user?.name ?? order.guestEmail ?? 'Guest',
+      customerEmail: order.user?.email ?? order.guestEmail ?? '',
+      customerPhone: order.user?.phoneNumber ?? order.guestPhone ?? null,
+      items: order.items?.map((i: any) => ({ ...i, variantLabel: i.variantDescription })) ?? [],
+      payment: order.payment
+        ? {
+            id: order.payment.id,
+            reference: order.payment.paystackReference,
+            channel: order.payment.channel,
+            status: order.payment.status,
+            amountKobo: order.payment.amountKobo,
+            verifiedAt: order.payment.verifiedAt,
+            createdAt: order.payment.createdAt,
+          }
+        : null,
+    };
+  }
+
   @Get()
   async findAll(
     @Query('status') status?: string,
@@ -39,6 +60,7 @@ export class AdminOrdersController {
         with: {
           user: { columns: { id: true, name: true, email: true, phoneNumber: true } },
           items: true,
+          payment: true,
         },
         orderBy: [desc(this.s.orders.createdAt)],
         limit: Number(limit),
@@ -51,13 +73,7 @@ export class AdminOrdersController {
     ]);
 
     return {
-      data: data.map((o) => ({
-        ...o,
-        customerName: o.user?.name ?? o.guestEmail ?? 'Guest',
-        customerEmail: o.user?.email ?? o.guestEmail ?? '',
-        customerPhone: o.user?.phoneNumber ?? o.guestPhone ?? null,
-        items: o.items.map((i) => ({ ...i, variantLabel: i.variantDescription })),
-      })),
+      data: data.map((o) => this.mapOrder(o)),
       total: Number(count),
       pages: Math.ceil(Number(count) / Number(limit)),
     };
@@ -77,18 +93,19 @@ export class AdminOrdersController {
 
     if (!order) return null;
 
-    return {
-      ...order,
-      customerName: order.user?.name ?? order.guestEmail ?? 'Guest',
-      customerEmail: order.user?.email ?? order.guestEmail ?? '',
-      customerPhone: order.user?.phoneNumber ?? order.guestPhone ?? null,
-      items: order.items.map((i) => ({ ...i, variantLabel: i.variantDescription })),
-    };
+    return this.mapOrder(order);
   }
 
   @Patch(':id/status')
   async updateStatus(@Param('id') id: string, @Body() dto: UpdateOrderStatusDto) {
     await this.ordersService.updateStatus(id, dto);
+
+    if (dto.status === 'DELIVERED') {
+      await this.db
+        .update(this.s.shipments)
+        .set({ status: 'DELIVERED', deliveredAt: new Date(), updatedAt: new Date() })
+        .where(eq(this.s.shipments.orderId, id));
+    }
 
     // Notify customer on shipping milestones
     if (dto.status === 'SHIPPED' || dto.status === 'DELIVERED') {

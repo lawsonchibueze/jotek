@@ -15,6 +15,8 @@ const STATUS_TABS = [
   { label: 'Shipped', value: 'SHIPPED' },
   { label: 'Delivered', value: 'DELIVERED' },
   { label: 'Cancelled', value: 'CANCELLED' },
+  { label: 'Returned', value: 'RETURNED' },
+  { label: 'Refunded', value: 'REFUNDED' },
 ];
 
 const STATUS_COLORS: Record<string, string> = {
@@ -78,6 +80,7 @@ export default async function OrdersPage({ searchParams }: PageProps) {
               <th className="px-4 py-3 text-left">Customer</th>
               <th className="px-4 py-3 text-left">Date</th>
               <th className="px-4 py-3 text-left">Status</th>
+              <th className="px-4 py-3 text-left">Risk</th>
               <th className="px-4 py-3 text-right">Total</th>
               <th className="px-4 py-3 text-left">Payment</th>
             </tr>
@@ -85,42 +88,66 @@ export default async function OrdersPage({ searchParams }: PageProps) {
           <tbody className="divide-y divide-gray-100">
             {result.data.length === 0 && (
               <tr>
-                <td colSpan={6} className="py-12 text-center text-gray-400">
+                <td colSpan={7} className="py-12 text-center text-gray-400">
                   No orders found
                 </td>
               </tr>
             )}
-            {result.data.map((order) => (
-              <tr key={order.id} className="hover:bg-gray-50">
-                <td className="px-4 py-3">
-                  <Link
-                    href={`/orders/${order.id}`}
-                    className="font-medium text-brand-500 hover:underline"
-                  >
-                    {order.orderNumber}
-                  </Link>
-                </td>
-                <td className="px-4 py-3 text-gray-600">{order.customerName}</td>
-                <td className="px-4 py-3 text-gray-500">
-                  {new Date(order.createdAt).toLocaleDateString('en-NG')}
-                </td>
-                <td className="px-4 py-3">
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                      STATUS_COLORS[order.status] ?? 'bg-gray-100 text-gray-600'
-                    }`}
-                  >
-                    {order.status.replace(/_/g, ' ')}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-right font-medium">
-                  {fmt(parseFloat(order.total))}
-                </td>
-                <td className="px-4 py-3 text-gray-500">
-                  {PAYMENT_LABELS[order.paymentMethod] ?? order.paymentMethod}
-                </td>
-              </tr>
-            ))}
+            {result.data.map((order) => {
+              const risky = Boolean(
+                order.adminNotes?.includes('[LATE_OR_DUPLICATE_PAYMENT]') ||
+                  order.adminNotes?.includes('[PAYMENT_AMOUNT_MISMATCH]') ||
+                  order.adminNotes?.includes('[PAYMENT_FAILED]'),
+              );
+
+              return (
+                <tr key={order.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3">
+                    <Link
+                      href={`/orders/${order.id}`}
+                      className="font-medium text-brand-500 hover:underline"
+                    >
+                      {order.orderNumber}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">{order.customerName}</td>
+                  <td className="px-4 py-3 text-gray-500">
+                    {new Date(order.createdAt).toLocaleDateString('en-NG')}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                        STATUS_COLORS[order.status] ?? 'bg-gray-100 text-gray-600'
+                      }`}
+                    >
+                      {order.status.replace(/_/g, ' ')}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    {risky ? (
+                      <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
+                        Review
+                      </span>
+                    ) : order.payment?.status === 'FAILED' ? (
+                      <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-semibold text-yellow-700">
+                        Failed pay
+                      </span>
+                    ) : (
+                      <span className="text-xs text-gray-400">Clear</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-right font-medium">
+                    {fmt(parseFloat(order.total))}
+                  </td>
+                  <td className="px-4 py-3 text-gray-500">
+                    <span>{PAYMENT_LABELS[order.paymentMethod] ?? order.paymentMethod}</span>
+                    {order.payment?.status && (
+                      <span className="ml-2 text-xs text-gray-400">{order.payment.status}</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

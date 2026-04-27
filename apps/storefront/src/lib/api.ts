@@ -1,4 +1,5 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const SERVER_FETCH_TIMEOUT_MS = 3_000;
 
 async function fetchApi<T>(
   path: string,
@@ -48,6 +49,7 @@ export const api = {
 export async function serverFetch<T>(path: string, revalidate = 60): Promise<T> {
   const res = await fetch(`${API_URL}/api/v1${path}`, {
     next: { revalidate },
+    signal: AbortSignal.timeout(SERVER_FETCH_TIMEOUT_MS),
     headers: { 'Content-Type': 'application/json' },
   });
 
@@ -73,6 +75,7 @@ export async function authedServerFetch<T>(path: string): Promise<T> {
 
   const res = await fetch(`${API_URL}/api/v1${path}`, {
     cache: 'no-store',
+    signal: AbortSignal.timeout(SERVER_FETCH_TIMEOUT_MS),
     headers: {
       'Content-Type': 'application/json',
       ...(cookieHeader && { Cookie: cookieHeader }),

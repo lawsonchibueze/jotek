@@ -245,10 +245,13 @@ export interface Order {
   customerEmail: string;
   customerPhone: string | null;
   payment: {
+    id?: string;
     reference: string;
-    channel: string;
+    channel: string | null;
     status: PaymentStatus;
+    amountKobo?: string;
     verifiedAt: string | null;
+    createdAt?: string;
   } | null;
   shipment: {
     carrier: ShipmentCarrier;
@@ -259,6 +262,8 @@ export interface Order {
     deliveredAt: string | null;
   } | null;
   notes: string | null;
+  adminNotes?: string | null;
+  cancelledReason?: string | null;
   createdAt: string;
   updatedAt: string;
 }

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { AlertTriangle, CreditCard, MessageCircle, PackageCheck, Truck } from 'lucide-react';
 import { api } from '@/lib/api';
 import { OrderActions } from '@/components/orders/order-actions';
 import type { Order } from '@jotek/types';
@@ -36,6 +37,13 @@ const STATUS_COLORS: Record<string, string> = {
 const fmt = (n: number) =>
   new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 }).format(n);
 
+const PAYMENT_LABELS: Record<string, string> = {
+  PAYSTACK_CARD: 'Paystack Card',
+  PAYSTACK_TRANSFER: 'Paystack Transfer',
+  PAYSTACK_USSD: 'Paystack USSD',
+  PAY_ON_DELIVERY: 'Pay on Delivery',
+};
+
 interface PageProps {
   params: Promise<{ id: string }>;
 }
@@ -47,6 +55,17 @@ export default async function OrderDetailPage({ params }: PageProps) {
 
   const currentStepIdx = STEPS.findIndex((s) => s.status === order.status);
   const isCancelled = CANCELLED_STATUSES.has(order.status);
+  const adminNotes = order.adminNotes ?? null;
+  const hasReconciliationRisk = Boolean(
+    adminNotes?.includes('[LATE_OR_DUPLICATE_PAYMENT]') ||
+      adminNotes?.includes('[PAYMENT_AMOUNT_MISMATCH]') ||
+      adminNotes?.includes('[PAYMENT_FAILED]'),
+  );
+  const isPaymentSuccessful =
+    order.paymentMethod === 'PAY_ON_DELIVERY' ||
+    order.payment?.status === 'SUCCESS' ||
+    ['PAID', 'PROCESSING', 'PACKED', 'SHIPPED', 'DELIVERED'].includes(order.status);
+  const whatsappPhone = order.customerPhone?.replace(/[^\d+]/g, '');
 
   return (
     <div className="space-y-6">
@@ -69,6 +88,12 @@ export default async function OrderDetailPage({ params }: PageProps) {
           <p className="mt-1 text-sm text-gray-500">
             {new Date(order.createdAt).toLocaleString('en-NG')}
           </p>
+          {hasReconciliationRisk && (
+            <div className="mt-3 inline-flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
+              <AlertTriangle className="h-4 w-4" />
+              Payment reconciliation required
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <Link
@@ -78,7 +103,64 @@ export default async function OrderDetailPage({ params }: PageProps) {
           >
             View Invoice
           </Link>
-          <OrderActions orderId={order.id} currentStatus={order.status} />
+          <OrderActions
+            orderId={order.id}
+            currentStatus={order.status}
+            paymentMethod={order.paymentMethod}
+            paymentStatus={order.payment?.status ?? null}
+          />
+        </div>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-xl border border-gray-200 bg-white p-4">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <CreditCard className="h-4 w-4" />
+            Payment
+          </div>
+          <p className={`mt-2 text-sm font-semibold ${isPaymentSuccessful ? 'text-green-700' : 'text-yellow-700'}`}>
+            {isPaymentSuccessful ? 'Confirmed' : 'Awaiting confirmation'}
+          </p>
+          <p className="mt-1 text-xs text-gray-500">{PAYMENT_LABELS[order.paymentMethod]}</p>
+        </div>
+        <div className="rounded-xl border border-gray-200 bg-white p-4">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <PackageCheck className="h-4 w-4" />
+            Fulfillment
+          </div>
+          <p className="mt-2 text-sm font-semibold text-gray-900">{order.status.replace(/_/g, ' ')}</p>
+          <p className="mt-1 text-xs text-gray-500">{order.items?.length ?? 0} line items</p>
+        </div>
+        <div className="rounded-xl border border-gray-200 bg-white p-4">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <Truck className="h-4 w-4" />
+            Delivery
+          </div>
+          <p className="mt-2 text-sm font-semibold text-gray-900">
+            {order.shipment?.status?.replace(/_/g, ' ') ?? order.deliveryMethod.replace(/_/g, ' ')}
+          </p>
+          <p className="mt-1 text-xs text-gray-500">
+            {(order.shippingAddress as any)?.city}, {(order.shippingAddress as any)?.state}
+          </p>
+        </div>
+        <div className="rounded-xl border border-gray-200 bg-white p-4">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <MessageCircle className="h-4 w-4" />
+            Customer
+          </div>
+          {whatsappPhone ? (
+            <a
+              href={`https://wa.me/${whatsappPhone.replace(/^\+/, '')}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 block text-sm font-semibold text-green-700 hover:underline"
+            >
+              WhatsApp customer
+            </a>
+          ) : (
+            <p className="mt-2 text-sm font-semibold text-gray-500">No phone number</p>
+          )}
+          <p className="mt-1 truncate text-xs text-gray-500">{order.customerEmail}</p>
         </div>
       </div>
 
@@ -173,20 +255,25 @@ export default async function OrderDetailPage({ params }: PageProps) {
           </div>
 
           {/* Admin notes */}
-          {(order as any).adminNotes && (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4">
+          {adminNotes && (
+            <div className={`rounded-xl border px-5 py-4 ${
+              hasReconciliationRisk
+                ? 'border-red-200 bg-red-50'
+                : 'border-amber-200 bg-amber-50'
+            }`}
+            >
               <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-amber-700">
                 Admin Notes
               </p>
-              <p className="text-sm text-amber-900">{(order as any).adminNotes}</p>
+              <pre className="whitespace-pre-wrap font-sans text-sm text-amber-900">{adminNotes}</pre>
             </div>
           )}
-          {(order as any).cancelledReason && (
+          {order.cancelledReason && (
             <div className="rounded-xl border border-red-200 bg-red-50 px-5 py-4">
               <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-red-700">
                 Cancellation Reason
               </p>
-              <p className="text-sm text-red-900">{(order as any).cancelledReason}</p>
+              <p className="text-sm text-red-900">{order.cancelledReason}</p>
             </div>
           )}
         </div>
@@ -230,45 +317,59 @@ export default async function OrderDetailPage({ params }: PageProps) {
           </div>
 
           {/* Payment */}
-          {order.payment && (
-            <div className="rounded-xl border border-gray-200 bg-white p-5">
-              <h3 className="mb-3 font-semibold text-gray-900">Payment</h3>
-              <dl className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <dt className="text-gray-500">Reference</dt>
-                  <dd className="max-w-[140px] truncate font-mono text-xs text-gray-700">
-                    {order.payment.reference}
-                  </dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-gray-500">Channel</dt>
-                  <dd className="capitalize text-gray-900">
-                    {order.payment.channel?.replace(/_/g, ' ')}
-                  </dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-gray-500">Status</dt>
-                  <dd
-                    className={
-                      order.payment.status === 'SUCCESS'
-                        ? 'font-medium text-green-600'
-                        : 'font-medium text-yellow-600'
-                    }
-                  >
-                    {order.payment.status}
-                  </dd>
-                </div>
-                {order.payment.verifiedAt && (
+          <div className="rounded-xl border border-gray-200 bg-white p-5">
+            <h3 className="mb-3 font-semibold text-gray-900">Payment</h3>
+            <dl className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <dt className="text-gray-500">Method</dt>
+                <dd className="text-right text-gray-900">{PAYMENT_LABELS[order.paymentMethod]}</dd>
+              </div>
+              {order.payment ? (
+                <>
                   <div className="flex justify-between">
-                    <dt className="text-gray-500">Verified</dt>
-                    <dd className="text-gray-500">
-                      {new Date(order.payment.verifiedAt).toLocaleDateString('en-NG')}
+                    <dt className="text-gray-500">Reference</dt>
+                    <dd className="max-w-[140px] truncate font-mono text-xs text-gray-700">
+                      {order.payment.reference}
                     </dd>
                   </div>
-                )}
-              </dl>
-            </div>
-          )}
+                  <div className="flex justify-between">
+                    <dt className="text-gray-500">Channel</dt>
+                    <dd className="capitalize text-gray-900">
+                      {order.payment.channel?.replace(/_/g, ' ') ?? 'Awaiting channel'}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-gray-500">Status</dt>
+                    <dd
+                      className={
+                        order.payment.status === 'SUCCESS'
+                          ? 'font-medium text-green-600'
+                          : order.payment.status === 'FAILED'
+                            ? 'font-medium text-red-600'
+                            : 'font-medium text-yellow-600'
+                      }
+                    >
+                      {order.payment.status}
+                    </dd>
+                  </div>
+                  {order.payment.verifiedAt && (
+                    <div className="flex justify-between">
+                      <dt className="text-gray-500">Verified</dt>
+                      <dd className="text-gray-500">
+                        {new Date(order.payment.verifiedAt).toLocaleDateString('en-NG')}
+                      </dd>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-500">
+                  {order.paymentMethod === 'PAY_ON_DELIVERY'
+                    ? 'Payment will be collected on delivery or pickup.'
+                    : 'No Paystack transaction has been initialized yet.'}
+                </div>
+              )}
+            </dl>
+          </div>
 
           {/* Shipment */}
           {order.shipment ? (
