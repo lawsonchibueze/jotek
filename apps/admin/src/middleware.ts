@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const STOREFRONT_URL =
-  process.env.NEXT_PUBLIC_STOREFRONT_URL || 'https://jotek.ng';
+const STOREFRONT_URL = process.env.NEXT_PUBLIC_STOREFRONT_URL?.trim();
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -28,7 +27,11 @@ export function middleware(request: NextRequest) {
 
   if (!sessionCookie) {
     if (pathname === '/') {
-      return NextResponse.redirect(new URL(STOREFRONT_URL));
+      if (STOREFRONT_URL) {
+        return NextResponse.redirect(new URL(STOREFRONT_URL));
+      }
+
+      return NextResponse.redirect(new URL('/login', request.url));
     }
 
     return NextResponse.redirect(new URL('/login', request.url));
