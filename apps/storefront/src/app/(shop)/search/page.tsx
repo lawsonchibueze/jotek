@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { serverFetch } from '@/lib/api';
+import { fallbackBrands, fallbackCategories } from '@/lib/catalog-fallbacks';
 import { ProductCard } from '@/components/shop/product-card';
 import { SearchFilters } from '@/components/shop/search-filters';
 import { SearchSortSelect } from '@/components/shop/search-sort-select';
@@ -97,7 +98,9 @@ export default async function SearchPage({ searchParams }: PageProps) {
     serverFetch<RawBrand[]>('/brands', 300).catch(() => [] as RawBrand[]),
   ]);
 
-  const allCategories = flattenCategories(rawCategories);
+  const allCategories = flattenCategories(
+    rawCategories.length > 0 ? rawCategories : fallbackCategories,
+  );
   const catCountMap = new Map(results.facets.categories.map((f) => [f.value, f.count]));
   const brandCountMap = new Map(results.facets.brands.map((f) => [f.value, f.count]));
 
@@ -107,7 +110,9 @@ export default async function SearchPage({ searchParams }: PageProps) {
     count: catCountMap.get(c.name),
   }));
 
-  const brandOptions = rawBrands.slice(0, 30).map((b) => ({
+  const visibleBrands = rawBrands.length > 0 ? rawBrands : fallbackBrands;
+
+  const brandOptions = visibleBrands.slice(0, 30).map((b) => ({
     name: b.name,
     slug: b.slug,
     count: brandCountMap.get(b.name),
@@ -125,7 +130,7 @@ export default async function SearchPage({ searchParams }: PageProps) {
   }
   if (brand) {
     chips.push({
-      label: rawBrands.find((b) => b.slug === brand)?.name ?? brand,
+      label: visibleBrands.find((b) => b.slug === brand)?.name ?? brand,
       href: removeFromParams(sp, 'brand'),
     });
   }
